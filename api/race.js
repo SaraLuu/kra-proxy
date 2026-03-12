@@ -54,6 +54,7 @@ module.exports = async (req, res) => {
       res.status(404).json({ error: '데이터 없음 — 출마표 미공개이거나 잘못된 날짜/경주번호', tip: '출마표는 경기 수요일부터 공개됩니다' });
       return;
     }
+    if (req.query.debug) return res.status(200).json(horses[0]);
     const first = horses[0];
     res.status(200).json({
       ok: true,
