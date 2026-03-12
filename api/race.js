@@ -2,11 +2,13 @@ const https = require('https');
 
 const KRA_KEY = 'bd42bcec6bd5b33efcbf21b4cb6f96c2475c082f61ac2829894cb42a1fa9a8ea';
 
+// 최신 API 엔드포인트
 const ENDPOINTS = {
-  entry:  'https://apis.data.go.kr/B551015/API212_1/RaceEntryInfo_1',
   result: 'https://apis.data.go.kr/B551015/API214_1/RaceDetailResult_1',
-  odds:   'https://apis.data.go.kr/B551015/API216/oddsWeather_1',
+  entry:  'https://apis.data.go.kr/B551015/API212_1/RaceEntryInfo_1',
 };
+
+const MEET_CODE = { K: '1', B: '3', J: '2' };
 
 function fetchJSON(url) {
   return new Promise((resolve, reject) => {
@@ -15,11 +17,11 @@ function fetchJSON(url) {
       res.on('data', c => data += c);
       res.on('end', () => {
         try { resolve(JSON.parse(data)); }
-        catch(e) { reject(new Error('파싱실패: ' + data.slice(0,100))); }
+        catch(e) { reject(new Error('파싱실패')); }
       });
     });
     req.on('error', reject);
-    req.setTimeout(10000, () => { req.destroy(); reject(new Error('타임아웃')); });
+    req.setTimeout(12000, () => { req.destroy(); reject(new Error('타임아웃')); });
   });
 }
 
@@ -40,53 +42,59 @@ module.exports = async (req, res) => {
     return;
   }
 
-  const base = `serviceKey=${KRA_KEY}&pageNo=1&numOfRows=20&rc_date=${date}&rc_no=${no}&meet=${meet}&_type=json`;
+  // meet 코드 변환 (K→1, B→3, J→2)
+  const meetCode = MEET_CODE[meet] || meet;
+  const base = `serviceKey=${KRA_KEY}&pageNo=1&numOfRows=20&rc_date=${date}&rc_no=${no}&meet=${meetCode}&_type=json`;
 
   try {
-    const [entryData, resultData, oddsData] = await Promise.allSettled([
+    const [entryData, resultData] = await Promise.allSettled([
       fetchJSON(`${ENDPOINTS.entry}?${base}`),
       fetchJSON(`${ENDPOINTS.result}?${base}`),
-      fetchJSON(`${ENDPOINTS.odds}?${base}`),
     ]);
 
     const entries = entryData.status === 'fulfilled' ? getItems(entryData.value) : [];
     const results = resultData.status === 'fulfilled' ? getItems(resultData.value) : [];
-    const odds    = oddsData.status === 'fulfilled'   ? getItems(oddsData.value)   : [];
-
-    const horses = entries.length > 0 ? entries : results;
+    const horses  = entries.length > 0 ? entries : results;
 
     if (horses.length === 0) {
+      // 디버그용: 실제 응답 반환
       res.status(404).json({
-        error: '데이터 없음 — 출마표 미공개이거나 잘못된 날짜/경주번호',
-        tip: '출마표는 경기 수요일부터 공개됩니다'
+        error: '데이터 없음',
+        entryStatus: entryData.status,
+        resultStatus: resultData.status,
+        entryReason: entryData.reason?.message,
+        resultReason: resultData.reason?.message,
+        entryResponse: entryData.value?.response?.header,
+        resultResponse: resultData.value?.response?.header,
       });
       return;
     }
 
-    const meta = {
-      date, no, meet,
-      dist:    (entries[0]?.rc_dist || results[0]?.rc_dist || '') + 'm',
-      weather: odds[0]?.weather    || results[0]?.weather    || '-',
-      track:   odds[0]?.track_cond || results[0]?.track_cond || '-',
-    };
-
-    const horseList = horses.map(h => ({
-      num:        h.chul_no   || h.win_no       || '',
-      name:       h.hr_name                     || '',
-      age:        h.hr_age                      || '',
-      weight:     h.burden_weight               || '',
-      jockeyName: h.jk_name                     || '',
-      jockeyRate: h.jk_wt_rate                  || '',
-      blood:      h.faHrName                    || '',
-      s1f:        h.s1f_btime                   || '',
-      g3f:        h.g3f_btime                   || '',
-      gf:         h.rc_time                     || '',
-      form:       [h.ord1,h.ord2,h.ord3,h.ord4,h.ord5].filter(Boolean).join('-'),
-      bodyWeight: h.hr_weight                   || '',
-      rating:     h.rating                      || '',
-    }));
-
-    res.status(200).json({ ok: true, meta, horses: horseList });
+    const first = horses[0];
+    res.status(200).json({
+      ok: true,
+      meta: {
+        date, no, meet,
+        dist: (first.rc_dist || '') + 'm',
+        weather: first.weather || '-',
+        track: first.track_cond || '-',
+      },
+      horses: horses.map(h => ({
+        num:        h.chul_no || h.win_no || '',
+        name:       h.hr_name  || '',
+        age:        h.hr_age   || '',
+        weight:     h.burden_weight || '',
+        jockeyName: h.jk_name  || '',
+        jockeyRate: h.jk_wt_rate || '',
+        blood:      h.faHrName || '',
+        s1f:        h.s1f_btime || '',
+        g3f:        h.g3f_btime || '',
+        gf:         h.rc_time   || '',
+        form: [h.ord1,h.ord2,h.ord3,h.ord4,h.ord5].filter(Boolean).join('-'),
+        bodyWeight: h.hr_weight || '',
+        rating:     h.rating    || '',
+      }))
+    });
 
   } catch (e) {
     res.status(500).json({ error: e.message });
