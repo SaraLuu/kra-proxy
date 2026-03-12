@@ -1,18 +1,16 @@
 const { fetchText, parseXML, MEET_CODE } = require('../lib/utils');
 const KRA_KEY = 'bd42bcec6bd5b33efcbf21b4cb6f96c2475c082f61ac2829894cb42a1fa9a8ea';
 
-async function getHorseDetail(hrNo) {
+async function getHorseDetail(hrNo, date, no, meetCode) {
   try {
-    const url = `https://apis.data.go.kr/B551015/API15_1/raceHorseInfo_1?serviceKey=${KRA_KEY}&pageNo=1&numOfRows=5&hr_no=${hrNo}&_type=json`;
+    const url = `https://apis.data.go.kr/B551015/API6_1/raceDetailSectionRecord_1?serviceKey=${KRA_KEY}&pageNo=1&numOfRows=20&hr_no=${hrNo}&_type=json`;
     const text = await fetchText(url);
     const data = JSON.parse(text);
-    const items = data?.response?.body?.items?.item;
-    if (!items) return { debugRaw: text.slice(0,200) };
-    const list = Array.isArray(items) ? items : [items];
-    const s1f = list.map(i=>i.s1fBtime||'').find(v=>v) || '';
-    const g3f = list.map(i=>i.g3fBtime||'').find(v=>v) || '';
-    const form = list.map(i=>i.ord||'').filter(Boolean).join('-');
-    return { debugRaw: list[0] };
+    const item = data?.response?.body?.items?.item;
+    if (!item) return {};
+    const list = Array.isArray(item) ? item : [item];
+    const latest = list[0];
+    return { debugRaw: latest };
   } catch(e) { return { debugErr: e.message }; }
 }
 module.exports = async (req, res) => {
