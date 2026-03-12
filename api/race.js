@@ -3,15 +3,13 @@ const KRA_KEY = 'bd42bcec6bd5b33efcbf21b4cb6f96c2475c082f61ac2829894cb42a1fa9a8e
 
 async function getHorseDetail(hrNo) {
   try {
-    const url = `https://apis.data.go.kr/B551015/API15_2/raceHorseResult_2?serviceKey=${KRA_KEY}&pageNo=1&numOfRows=5&hr_no=${hrNo}`;
-    const xml = await fetchText(url);
-    const items = parseXML(xml);
-    if (!items.length) return {};
-    const latest = items[0];
-    const s1f = items.map(i=>i.s1fBtime||i.s1fTime||'').find(v=>v) || '';
-    const g3f = items.map(i=>i.g3fBtime||i.g3fTime||'').find(v=>v) || '';
-    const form = items.map(i=>i.ord||i.rcOrd||'').filter(Boolean).join('-');
-    return { s1f, g3f, form, blood: latest.faHrName||latest.sireNm||'' };
+    const url = `https://apis.data.go.kr/B551015/API220/raceHorse_1?serviceKey=${KRA_KEY}&pageNo=1&numOfRows=1&hr_no=${hrNo}&_type=json`;
+    const text = await fetchText(url);
+    const data = JSON.parse(text);
+    const item = data?.response?.body?.items?.item;
+    if (!item) return {};
+    const h = Array.isArray(item) ? item[0] : item;
+    return { blood: h.faHrName||h.sireNm||'', s1f: h.s1fBtime||'', g3f: h.g3fBtime||'', form: [h.ord1,h.ord2,h.ord3,h.ord4,h.ord5].filter(Boolean).join('-') };
   } catch(e) { return {}; }
 }
 
