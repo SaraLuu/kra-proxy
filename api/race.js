@@ -3,16 +3,18 @@ const KRA_KEY = 'bd42bcec6bd5b33efcbf21b4cb6f96c2475c082f61ac2829894cb42a1fa9a8e
 
 async function getHorseDetail(hrNo) {
   try {
-    const url = `https://apis.data.go.kr/B551015/API220/raceHorse_1?serviceKey=${KRA_KEY}&pageNo=1&numOfRows=1&hr_no=${hrNo}&_type=json`;
+    const url = `https://apis.data.go.kr/B551015/API214_1/RaceDetailResult_1?serviceKey=${KRA_KEY}&pageNo=1&numOfRows=5&hr_no=${hrNo}&_type=json`;
     const text = await fetchText(url);
     const data = JSON.parse(text);
-    const item = data?.response?.body?.items?.item;
-    if (!item) return {};
-    const h = Array.isArray(item) ? item[0] : item;
-    return { blood: h.faHrName||h.sireNm||'', s1f: h.s1fBtime||'', g3f: h.g3fBtime||'', form: [h.ord1,h.ord2,h.ord3,h.ord4,h.ord5].filter(Boolean).join('-') };
-  } catch(e) { return {}; }
+    const items = data?.response?.body?.items?.item;
+    if (!items) return { debugRaw: text.slice(0,200) };
+    const list = Array.isArray(items) ? items : [items];
+    const s1f = list.map(i=>i.s1fBtime||'').find(v=>v) || '';
+    const g3f = list.map(i=>i.g3fBtime||'').find(v=>v) || '';
+    const form = list.map(i=>i.ord||'').filter(Boolean).join('-');
+    return { blood: list[0].faHrName||'', s1f, g3f, form };
+  } catch(e) { return { debugErr: e.message }; }
 }
-
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
