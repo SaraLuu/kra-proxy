@@ -1,14 +1,10 @@
 const https = require('https');
-
 const KRA_KEY = 'bd42bcec6bd5b33efcbf21b4cb6f96c2475c082f61ac2829894cb42a1fa9a8ea';
 
-// 최신 API 주소 (2025 기준)
 const ENDPOINTS = {
   result: 'http://apis.data.go.kr/B551015/racedetailresult/getracedetailresult',
   entry:  'http://apis.data.go.kr/B551015/racehorselist/getracehorselist',
 };
-
-// meet 코드: K→1(서울), B→3(부산경남), J→2(제주)
 const MEET_CODE = { K: '1', B: '3', J: '2' };
 
 function fetchText(url) {
@@ -54,41 +50,47 @@ module.exports = async (req, res) => {
   const meetCode = MEET_CODE[meet] || meet;
 
   try {
-    const resultUrl = `${ENDPOINTS.result}?serviceKey=${KRA_KEY}&pageNo=1&numOfRows=20&rc_date=${date}&rc_no=${no}&meet=${meetCode}`;
-    const xml = await fetchText(resultUrl);
-    const horses = parseXML(xml);
+    // 결과 + 출마표 동시 호출
+    const [resultXml, entryXml] = await Promise.all([
+      fetchText(`${ENDPOINTS.result}?serviceKey=${KRA_KEY}&pageNo=1&numOfRows=20&rc_date=${date}&rc_no=${no}&meet=${meetCode}`).catch(() => ''),
+      fetchText(`${ENDPOINTS.entry}?serviceKey=${KRA_KEY}&pageNo=1&numOfRows=20&rc_date=${date}&rc_no=${no}&meet=${meetCode}`).catch(() => ''),
+    ]);
+
+    const results = parseXML(resultXml);
+    const entries = parseXML(entryXml);
+    const horses  = results.length > 0 ? results : entries;
 
     if (horses.length === 0) {
       res.status(404).json({
-        error: '데이터 없음',
-        snippet: xml.slice(0, 400),
+        error: '데이터 없음 — 출마표 미공개이거나 잘못된 날짜/경주번호',
+        tip: '출마표는 경기 수요일부터 공개됩니다',
       });
       return;
     }
-if (req.query.debug) return res.status(200).json(horses[0]);
+
     const first = horses[0];
     res.status(200).json({
       ok: true,
       meta: {
         date, no, meet,
-        dist:    (first.rcDist || first.rc_dist || '') + 'm',
+        dist:    (first.rcDist || '') + 'm',
         weather: first.weather || '-',
-        track:   first.trackCond || first.track_cond || '-',
+        track:   first.trackCond || '-',
       },
       horses: horses.map(h => ({
-        num:        h.chulNo    || h.winNo     || '',
-        name:       h.hrName    || '',
-        age:        h.hrAge     || '',
-        weight:     h.budenWeight || h.buden_weight || '',
-        jockeyName: h.jkName    || '',
-        jockeyRate: h.jkWtRate  || '',
-        blood:      h.faHrName  || '',
-        s1f:        h.s1fBtime  || '',
-        g3f:        h.g3fBtime  || '',
-        gf:         h.rcTime    || '',
-        form: [h.ord1,h.ord2,h.ord3,h.ord4,h.ord5].filter(Boolean).join('-'),
-        bodyWeight: h.hrWeight  || '',
-        rating:     h.rating    || '',
+        num:        h.chulNo   || '',
+        name:       h.hrName   || '',
+        age:        h.age      || '',
+        weight:     h.wgBudam  || '',        // 부담중량
+        jockeyName: h.jkName   || '',
+        jockeyRate: h.jkWtRate || h.winRate || '',
+        blood:      h.faHrName || '',
+        s1f:        h.s1fBtime || h.s1f     || '',
+        g3f:        h.g3fBtime || h.g3f     || '',
+        gf:         h.rcTime   || '',        // 전체 기록
+        form:       [h.ord1,h.ord2,h.ord3,h.ord4,h.ord5].filter(Boolean).join('-'),
+        bodyWeight: h.wgHr     || '',        // 마체중
+        rating:     h.hrRating || '',
       }))
     });
 
@@ -96,3 +98,4 @@ if (req.query.debug) return res.status(200).json(horses[0]);
     res.status(500).json({ error: e.message });
   }
 };
+```
