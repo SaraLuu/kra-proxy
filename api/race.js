@@ -3,7 +3,7 @@ const KRA_KEY = 'bd42bcec6bd5b33efcbf21b4cb6f96c2475c082f61ac2829894cb42a1fa9a8e
 
 async function getHorseDetail(hrNo) {
   try {
-    const url = `https://apis.data.go.kr/B551015/API214_1/RaceDetailResult_1?serviceKey=${KRA_KEY}&pageNo=1&numOfRows=5&hr_no=${hrNo}&_type=json`;
+    const url = `https://apis.data.go.kr/B551015/API15_1/raceHorseInfo_1?serviceKey=${KRA_KEY}&pageNo=1&numOfRows=5&hr_no=${hrNo}&_type=json`;
     const text = await fetchText(url);
     const data = JSON.parse(text);
     const items = data?.response?.body?.items?.item;
