@@ -12,7 +12,7 @@ async function getHorseDetail(hrNo) {
     const s1f = list.map(i=>i.s1fBtime||'').find(v=>v) || '';
     const g3f = list.map(i=>i.g3fBtime||'').find(v=>v) || '';
     const form = list.map(i=>i.ord||'').filter(Boolean).join('-');
-    return { blood: list[0].faHrName||'', s1f, g3f, form };
+    return { debugRaw: list[0] };
   } catch(e) { return { debugErr: e.message }; }
 }
 module.exports = async (req, res) => {
