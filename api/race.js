@@ -25,7 +25,10 @@ module.exports = async (req, res) => {
     const xml = await fetchText(`https://apis.data.go.kr/B551015/racedetailresult/getracedetailresult?${base}`);
     const horses = parseXML(xml);
     if (!horses.length) { res.status(404).json({ error: '데이터 없음', tip: '출마표는 경기 수요일부터 공개됩니다' }); return; }
-    if (req.query.debug) return res.status(200).json(horses[0]);
+      if (req.query.debug) {
+      const d = await getHorseDetail(horses[0].hrNo);
+      return res.status(200).json({ hrNo: horses[0].hrNo, detail: d });
+    }
     const details = await Promise.all(horses.map(h => getHorseDetail(h.hrNo)));
     res.status(200).json({
       ok: true,
