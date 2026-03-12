@@ -65,7 +65,7 @@ module.exports = async (req, res) => {
       });
       return;
     }
-
+if (req.query.debug) return res.status(200).json(horses[0]);
     const first = horses[0];
     res.status(200).json({
       ok: true,
